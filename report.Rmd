@@ -1,0 +1,41 @@
+```{r echo=FALSE,message=FALSE}
+require(twitteR)
+setwd('~/git/twitTracker/')
+usr=getUser("dzidorius")
+tmp=sapply(usr$getFollowers(),function(x)x$screenName)
+
+if(!file.exists('users.csv'))
+{
+  ## when file doesn't exist - take users list and add some artificial user
+  write.table(c(as.character(tmp),'dzidorius'),'users.csv')
+  
+}
+
+old_list=as.character(read.table('users.csv')$x)
+users=lookupUsers(old_list[which(!(old_list %in% as.character(tmp)))])
+if(length(users)==0)
+{
+  ## stop() doesn't work under knitr
+  cat('no one left you')  
+
+}
+```
+
+
+```{r comment=NA,echo=FALSE,message=FALSE,results='asis'}
+for(i in 1:length(users))
+{
+cat(paste("**",users[[i]]$name," @",users[[i]]$screenName,"**", "\n===\n",sep=""))
+cat(paste("![](https://api.twitter.com/1/users/profile_image?screen_name=",users[[i]]$screenName,
+          "&size=bigger)",sep=''))
+cat(paste("  \n**Created:** ",users[[i]]$created,
+          "  \n**Spam rate:** ",round(users[[i]]$followersCount/users[[i]]$friendsCount,digits=2),
+          "  \n**Activity:** " , users[[i]]$statusesCount,
+          "  \n**Location:** ", users[[i]]$location,"  \n",users[[i]]$description,"  \n",
+          "**Last status:** ",(users[[i]]$lastStatus$text),"\n\n",sep=""))
+}
+```
+
+```{r comment=NA,echo=FALSE,message=FALSE,results='asis'}
+write.table(as.character(tmp),'users.csv')
+```
