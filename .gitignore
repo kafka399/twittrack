@@ -2,3 +2,8 @@
 figure
 report.md
 *.csv
+*.rda
+test.Rmd
+art.Rmd
+*.md
+generate.sh

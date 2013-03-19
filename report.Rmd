@@ -1,8 +1,28 @@
-```{r echo=FALSE,message=FALSE}
-require(twitteR)
-setwd('~/git/twitTracker/')
-usr=getUser("dzidorius")
-tmp=sapply(usr$getFollowers(),function(x)x$screenName)
+```{r comment=NA,echo=FALSE,message=FALSE,results='asis'}
+setwd('/mnt/git/twitTracker/')
+opts_knit$set(stop_on_error = 2L)
+library(ROAuth)
+require(httr)
+require(rjson)
+myapp <- oauth_app("twitter", key = Sys.getenv("TWITTER_TOKEN"),secret=Sys.getenv("TWITTER_TOKEN_SECRET"))
+sig <- sign_oauth1.0(myapp,token = Sys.getenv("TWITTER_TOKEN"),token_secret=Sys.getenv("TWITTER_TOKEN_SECRET"))
+followers=GET("https://api.twitter.com/1/followers.json?cursor=-1&screen_name=dzidorius", sig)
+
+tmp=fromJSON(content(followers,'text'))$users
+cursor=fromJSON(content(followers,'text'))$next_cursor
+
+while(cursor>0)
+{
+  followers=GET(paste("https://api.twitter.com/1/followers.json?screen_name=dzidorius&cursor=",cursor,sep=''), sig)
+  tmp=c(tmp,fromJSON(content(followers,'text'))$users)
+  cursor=fromJSON(content(followers,'text'))$next_cursor
+}
+
+tmp=sapply(tmp,function(x)x[]$screen_name)
+
+#usr=getUser("dzidorius")
+
+#tmp=sapply(usr$getFollowers(),function(x)x$screenName)
 
 if(!file.exists('users.csv'))
 {
@@ -12,10 +32,16 @@ if(!file.exists('users.csv'))
 }
 
 old_list=as.character(read.table('users.csv')$x)
-users=lookupUsers(old_list[which(!(old_list %in% as.character(tmp)))])
+leavers=old_list[which(!(old_list %in% tmp))]
+
+users=lapply(leavers,function(x){
+fromJSON(content(GET(paste("https://api.twitter.com/1/users/show.json?screen_name=",x,"&include_entities=false",sep=''),sig),'text'))
+})
+
+#users=lookupUsers(old_list[which(!(old_list %in% as.character(tmp)))])
 if(length(users)==0)
 {
-  ## stop() doesn't work under knitr
+  stop() #doesn't work under knitr
   cat('no one left you')  
 
 }
@@ -25,14 +51,14 @@ if(length(users)==0)
 ```{r comment=NA,echo=FALSE,message=FALSE,results='asis'}
 for(i in 1:length(users))
 {
-cat(paste("**",users[[i]]$name," @",users[[i]]$screenName,"**", "\n===\n",sep=""))
-cat(paste("![](https://api.twitter.com/1/users/profile_image?screen_name=",users[[i]]$screenName,
+cat(paste("**",users[[i]]$name," @",users[[i]]$screen_name,"**", "\n===\n",sep=""))
+cat(paste("![](https://api.twitter.com/1/users/profile_image?screen_name=",users[[i]]$screen_name,
           "&size=bigger)",sep=''))
 cat(paste("  \n**Created:** ",users[[i]]$created,
-          "  \n**Spam rate:** ",round(users[[i]]$followersCount/users[[i]]$friendsCount,digits=2),
-          "  \n**Activity:** " , users[[i]]$statusesCount,
+          "  \n**Spam rate:** ",round(users[[i]]$followers_count/users[[i]]$friends_count,digits=2),
+          "  \n**Activity:** " , users[[i]]$statuses_count,
           "  \n**Location:** ", users[[i]]$location,"  \n",users[[i]]$description,"  \n",
-          "**Last status:** ",(users[[i]]$lastStatus$text),"\n\n",sep=""))
+          "**Last status:** ",ifelse(length(users[[i]]$status)>1,users[[i]]$status$text,''),"\n\n",sep=""))
 }
 ```
 
